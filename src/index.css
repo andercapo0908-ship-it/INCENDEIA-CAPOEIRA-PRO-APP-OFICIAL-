@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-suez: "Suez One", serif;
+  --color-brand-red: #D90429;
+  --color-brand-orange: #FB8500;
+  --color-brand-yellow: #FFB703;
+  --color-brand-dark: #121212;
+  --color-brand-card: #1E1E1E;
+  --color-brand-text: #FFFFFF;
+  --color-brand-muted: #A0A0A0;
+  
+  --animate-spin-slow: spin 8s linear infinite;
+  --animate-orbit: orbit 20s linear infinite;
+  --animate-marquee: marquee 20s linear infinite;
+  --animate-fire-orbit: fire-orbit 4s linear infinite;
+  --animate-float: float 10s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+  33% { transform: translate(30px, -50px) scale(1.2); opacity: 0.5; }
+  66% { transform: translate(-20px, 40px) scale(0.8); opacity: 0.2; }
+}
+
+@keyframes fire-orbit {
+  0% { transform: rotateX(60deg) rotateY(0deg) rotateZ(0deg); }
+  100% { transform: rotateX(60deg) rotateY(0deg) rotateZ(360deg); }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes orbit {
+  from { transform: rotate(0deg) translateX(120px) rotate(0deg); }
+  to { transform: rotate(360deg) translateX(120px) rotate(-360deg); }
+}
+
+body {
+  background-color: #121212;
+  color: #ffffff;
+}
+
+@utility text-brazil {
+  background: linear-gradient(to right, #009c3b, #ffdf00, #002776);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@utility text-spain {
+  background: linear-gradient(to right, #AA151B, #F1BF00, #AA151B);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

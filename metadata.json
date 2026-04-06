@@ -1,0 +1,8 @@
+{
+  "name": "Incendeia Capoeira PRO",
+  "description": "Aplicativo social completo para a comunidade de capoeira com interação, conteúdo e gestão.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

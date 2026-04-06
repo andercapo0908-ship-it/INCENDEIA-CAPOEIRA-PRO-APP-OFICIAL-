@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "UserData": {
+      "title": "UserData",
+      "description": "User profile and role information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["USER", "ADMIN"] },
+        "graduation": { "type": "string" },
+        "avatar": { "type": "string" },
+        "bio": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "MuralPost": {
+      "title": "MuralPost",
+      "description": "Post on the community mural",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "nickname": { "type": "string" },
+        "avatar": { "type": "string" },
+        "text": { "type": "string" },
+        "image": { "type": "string" },
+        "timestamp": { "type": "object" },
+        "likes": { "type": "array", "items": { "type": "string" } },
+        "comments": { "type": "array" }
+      },
+      "required": ["userId", "nickname", "text", "timestamp"]
+    },
+    "GalleryItem": {
+      "title": "GalleryItem",
+      "description": "Image in the community gallery",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "timestamp": { "type": "object" },
+        "likes": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["url", "userId", "userName", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserData",
+      "description": "User profiles"
+    },
+    "/mural/{postId}": {
+      "schema": "MuralPost",
+      "description": "Community mural posts"
+    },
+    "/gallery/{itemId}": {
+      "schema": "GalleryItem",
+      "description": "Gallery images"
+    },
+    "/config/app": {
+      "schema": "object",
+      "description": "App-wide configuration"
+    }
+  }
+}
