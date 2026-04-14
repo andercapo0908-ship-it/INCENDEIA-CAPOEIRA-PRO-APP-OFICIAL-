@@ -12,6 +12,7 @@
   "dependencies": {
     "@google/genai": "^1.48.0",
     "@tailwindcss/vite": "^4.2.2",
+    "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.0",
     "date-fns": "^3.3.1",
     "firebase": "^10.8.0",
