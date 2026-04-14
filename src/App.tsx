@@ -5,6 +5,7 @@ import { GeminiStudio } from './components/GeminiStudio';
 import { AIChat } from './components/AIChat';
 import { LiveSession } from './components/LiveSession';
 import { BottomNav } from './components/BottomNav';
+import { Analytics } from '@vercel/analytics/react';
 import { 
   Users, LogOut, ArrowLeft, Calendar, 
   MessageCircle, MapPin, Image as ImageIcon, BookOpen, Shield, Home, 
@@ -1182,6 +1183,7 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
   };
 
   return <div className="min-h-screen font-sans bg-brand-dark text-white selection:bg-brand-red selection:text-white">
+    <Analytics />
     <Sidebar 
       isOpen={isSidebarOpen} 
       onClose={() => setIsSidebarOpen(false)} 
