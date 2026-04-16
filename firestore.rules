@@ -1,51 +1,174 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (auth.uid)
+    // Fields: id, nickname, name, role, graduation, graduationColor, since, avatar, bio, birthDate, notes, reactions
+    //
+    // Collection: masters
+    // Document ID: masterId
+    // Fields: id, name, graduation, history, photo
+    //
+    // Collection: locations
+    // Document ID: locationId
+    // Fields: id, address, responsible, phone, mapLink
+    //
+    // Collection: events
+    // Document ID: eventId
+    // Fields: id, title, date, location, poster
+    //
+    // Collection: gallery
+    // Document ID: itemId
+    // Fields: id, type, url, title, description, likes, comments, uploadedBy, timestamp
+    //
+    // Collection: chat
+    // Document ID: messageId
+    // Fields: id, userId, nickname, text, timestamp, isAdmin
+    //
+    // Collection: forum
+    // Document ID: postId
+    // Fields: id, title, content, author, comments
+    //
+    // Collection: partners
+    // Document ID: partnerId
+    // Fields: id, name, type, discount, logo
+    //
+    // Collection: products
+    // Document ID: productId
+    // Fields: id, name, price, color, qty, img
+    //
+    // Collection: payments
+    // Document ID: paymentId
+    // Fields: id, userId, month, year, value, status
+    //
+    // Collection: config
+    // Document ID: layout, navigation, history
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    function isAdmin() {
-      return isAuthenticated() && 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
-    }
-    
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // User profiles
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN' ||
+         request.auth.token.email == "andercapo0908@gmail.com");
+    }
+
+    function isValidUser(data) {
+      return data.id is string && 
+             data.nickname is string && data.nickname.size() > 0 && data.nickname.size() < 50 &&
+             data.role in ['ADMIN', 'MEMBER', 'GUEST'];
+    }
+
+    function isValidMaster(data) {
+      return data.id is string && data.name is string && data.graduation is string;
+    }
+
+    function isValidLocation(data) {
+      return data.id is string && data.address is string && data.responsible is string;
+    }
+
+    function isValidEvent(data) {
+      return data.id is string && data.title is string && data.date is string && data.location is string;
+    }
+
+    function isValidGalleryItem(data) {
+      return data.id is string && data.type in ['image', 'video'] && data.url is string && data.uploadedBy is string;
+    }
+
+    function isValidPartner(data) {
+      return data.id is string && data.name is string && data.type is string && data.discount is string;
+    }
+
+    function isValidProduct(data) {
+      return data.id is string && data.name is string && data.price is number && data.qty is number;
+    }
+
+    function isValidPayment(data) {
+      return data.id is string && data.userId is string && data.month is string && data.year is number && data.value is number && data.status in ['PAID', 'PENDING'];
+    }
+
+    function isValidChatMessage(data) {
+      return data.id is string && data.userId == request.auth.uid && data.text is string && data.text.size() < 1000;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data);
+      allow delete: if isAdmin();
     }
 
-    // Mural posts
-    match /mural/{postId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']) || isAdmin());
-      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
-    }
-
-    // Gallery
-    match /gallery/{itemId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']) || isAdmin());
-      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
-    }
-
-    // App Config
-    match /config/{docId} {
+    match /masters/{masterId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow write: if isAdmin() && isValidMaster(request.resource.data);
     }
 
-    // Other collections (Graduations, History, etc.)
-    match /{collectionName}/{docId} {
+    match /locations/{locationId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidLocation(request.resource.data);
+    }
+
+    match /events/{eventId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidEvent(request.resource.data);
+    }
+
+    match /gallery/{itemId} {
+      allow read: if true;
+      allow create: if isAuthenticated() && isValidGalleryItem(request.resource.data);
+      allow update: if isAuthenticated() && (request.resource.data.uploadedBy == request.auth.uid || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.uploadedBy == request.auth.uid || isAdmin());
+    }
+
+    match /chat/{messageId} {
       allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidChatMessage(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /forum/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (resource.data.author == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    match /partners/{partnerId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidPartner(request.resource.data);
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidProduct(request.resource.data);
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin() && isValidPayment(request.resource.data);
+    }
+
+    match /config/{configId} {
+      allow read: if true;
       allow write: if isAdmin();
     }
   }

@@ -1,5 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { User, UserRole, Language, NavSection, Master, TrainingLocation, Event, GraduationSystem, ChatMessage, ForumPost, GalleryItem, Comment, NavItemConfig, INITIAL_EVENTS, INITIAL_NAV_CONFIG, FONT_OPTIONS, INITIAL_GRADUATIONS, GRADUATION_LEVELS } from './types';
+import { 
+  User, 
+  UserRole, 
+  Language, 
+  NavSection, 
+  Master, 
+  TrainingLocation, 
+  Event, 
+  GraduationSystem, 
+  ChatMessage, 
+  ForumPost, 
+  GalleryItem, 
+  Comment, 
+  NavItemConfig, 
+  INITIAL_EVENTS, 
+  INITIAL_NAV_CONFIG, 
+  FONT_OPTIONS, 
+  Partner, 
+  Product, 
+  Payment 
+} from './types';
 import { FlameButton } from './components/FlameButton';
 import { GeminiStudio } from './components/GeminiStudio';
 import { AIChat } from './components/AIChat';
@@ -10,27 +30,37 @@ import {
   MessageCircle, MapPin, Image as ImageIcon, BookOpen, Shield, Home, 
   Video, Globe, PenTool, Trash2, Plus, Camera, Map, Upload,
   Type, Palette, Sliders, Bot, Mic2, Sparkles, Heart, MessageCircle as CommentIcon, Send,
-  ChevronUp, ChevronDown, Eye, EyeOff, Layout, Edit3, Save, X, ShoppingBag, DollarSign, ShoppingCart, AlertCircle, CheckCircle2, Clock, Award
+  ChevronUp, ChevronDown, Eye, EyeOff, Layout, Edit3, Save, X, ShoppingBag, DollarSign, ShoppingCart, AlertCircle, CheckCircle2, Clock,
+  Link, Copy, Menu
 } from 'lucide-react';
+import { auth, db, storage } from './firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { where } from 'firebase/firestore';
+import { 
+  onAuthStateChanged, 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  signOut,
+  GoogleAuthProvider,
+  signInWithPopup
+} from 'firebase/auth';
+import { 
+  getCollection, 
+  addDocument, 
+  updateDocument, 
+  deleteDocument, 
+  userService, 
+  configService 
+} from './services/firebaseService';
+import { generateAppLinks, Web2AppConfig, Web2AppResult } from './services/web2appService';
+import toast, { Toaster } from 'react-hot-toast';
 
 // --- ICONS MAPPING ---
 const ICON_MAP: Record<string, any> = {
   Home, Users, MessageCircle, Image: ImageIcon, Calendar, 
   MapPin, BookOpen, Video, Globe, Bot, Mic2, Sparkles, Shield, Heart,
-  Camera, Map, Upload, Sliders, Menu: Layout, ShoppingBag, DollarSign, Award
+  Camera, Map, Upload, Sliders, Menu: Layout, ShoppingBag, DollarSign, Link
 };
-
-// --- INITIAL MOCK DATA ---
-const INITIAL_MASTERS: Master[] = [
-  { id: '1', name: 'Mestre Duende', graduation: 'Corda Vermelha', history: 'Fundador do grupo...', photo: undefined },
-  { id: '2', name: 'Mestre Gato', graduation: 'Corda Vermelha', history: 'Mestre renomado...', photo: undefined },
-  { id: '3', name: 'Mestre Cobra', graduation: 'Corda Vermelha', history: 'Especialista em rasteiras...', photo: undefined }
-];
-const INITIAL_LOCATIONS: TrainingLocation[] = [
-  { id: '1', address: 'Centro Comunitário', responsible: 'Mestre Duende', phone: '551199999999', mapLink: '' },
-  { id: '2', address: 'Academia Fire', responsible: 'Mestre Gato', phone: '551188888888', mapLink: '' },
-  { id: '3', address: 'Parque do Ibirapuera', responsible: 'Mestre Cobra', phone: '551177777777', mapLink: '' }
-];
 
 // --- COMPONENTS ---
 
@@ -49,85 +79,20 @@ const FloatingGradients = () => (
   </div>
 );
 
-const Sidebar = ({ isOpen, onClose, onNavigate, currentSection, navItems, user, onLogout }: any) => (
-  <>
-    <div 
-      className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-      onClick={onClose}
-    />
-    <div className={`fixed top-0 left-0 h-full w-72 bg-brand-dark border-r border-gray-800 z-[70] transition-transform duration-500 ease-out shadow-[10px_0_30px_rgba(0,0,0,0.5)] ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-      <div className="flex flex-col h-full p-6">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-red flex items-center justify-center shadow-[0_0_15px_rgba(217,4,41,0.5)]">
-              <img src="https://i.ibb.co/V0WppRbR/1770855196310.png" alt="Logo" className="w-7 h-7 object-contain" />
-            </div>
-            <span className="font-suez text-lg text-white tracking-tighter">INCENDEIA</span>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-800 rounded-lg transition-colors"><X size={20} className="text-gray-400" /></button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
-          {navItems.map((item: any) => {
-            const Icon = ICON_MAP[item.icon] || Home;
-            const isActive = currentSection === item.section;
-            return (
-              <button
-                key={item.section}
-                onClick={() => { onNavigate(item.section); onClose(); }}
-                className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all duration-300 group ${isActive ? 'bg-brand-red text-white shadow-[0_5px_15px_rgba(217,4,41,0.3)]' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
-              >
-                <Icon size={20} className={isActive ? 'text-white' : 'group-hover:text-brand-orange transition-colors'} />
-                <span className="text-sm font-bold uppercase tracking-widest">{item.label}</span>
-                {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="mt-auto pt-6 border-t border-gray-800">
-          <div className="flex items-center gap-3 mb-6 p-3 bg-brand-card rounded-2xl border border-gray-800">
-            <div className="w-10 h-10 rounded-full border-2 border-brand-orange overflow-hidden">
-              <img src={user?.avatar || "https://picsum.photos/seed/user/100/100"} className="w-full h-full object-cover" />
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <p className="text-xs font-black text-white truncate uppercase">{user?.nickname}</p>
-              <p className="text-[9px] text-gray-500 font-bold uppercase tracking-tighter">{user?.role}</p>
-            </div>
-          </div>
-          <button onClick={onLogout} className="w-full flex items-center justify-center gap-3 py-4 bg-gray-900 hover:bg-red-900/20 text-gray-400 hover:text-brand-red rounded-2xl transition-all border border-gray-800 hover:border-brand-red/30">
-            <LogOut size={18} />
-            <span className="text-xs font-black uppercase tracking-widest">Sair do App</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </>
-);
-
-const Header = ({ title, onBack, onLogout, onMenu }: { title: string, onBack?: () => void, onLogout: () => void, onMenu?: () => void }) => (
+const Header = ({ title, onBack, onLogout, onOpenMenu, isHome }: { title: string, onBack?: () => void, onLogout: () => void, onOpenMenu?: () => void, isHome?: boolean }) => (
   <header className="bg-brand-card shadow-md sticky top-0 z-50 px-4 py-3 flex items-center justify-between border-b border-gray-800">
     <div className="flex items-center gap-3">
-      {onMenu && (
-        <button onClick={onMenu} className="p-2 rounded-xl hover:bg-gray-800 text-brand-orange border border-gray-700 transition-all active:scale-90">
-          <Layout size={20} />
+      {isHome && onOpenMenu ? (
+        <button onClick={onOpenMenu} className="p-2 rounded-full hover:bg-gray-800 text-brand-orange border border-gray-700">
+          <Menu size={18} />
         </button>
-      )}
-      {onBack && !onMenu && (
+      ) : onBack ? (
         <button onClick={onBack} className="p-2 rounded-full hover:bg-gray-800 text-brand-red border border-gray-700">
           <ArrowLeft size={18} />
         </button>
-      )}
+      ) : null}
+      <h1 className="font-suez text-base text-white tracking-wide truncate max-w-[200px] uppercase drop-shadow-md">{title}</h1>
     </div>
-    
-    <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
-      <div className="flex items-center gap-2">
-        <img src="https://i.ibb.co/V0WppRbR/1770855196310.png" alt="Logo" className="w-5 h-5 object-contain" />
-        <h1 className="font-suez text-[10px] text-white tracking-[0.2em] uppercase drop-shadow-[0_0_5px_rgba(217,4,41,0.5)]">INCENDEIA</h1>
-      </div>
-      <span className="text-[6px] font-black text-brand-orange tracking-[0.4em] -mt-0.5 opacity-80">CAPOEIRA</span>
-    </div>
-
     <button onClick={onLogout} className="group p-2 flex flex-col items-center justify-center rounded-full hover:bg-gray-800 transition-colors">
       <LogOut size={16} className="text-brand-red group-hover:text-red-400" />
       <span className="text-[7px] font-bold text-gray-500 group-hover:text-gray-300 mt-1">SAIR</span>
@@ -158,13 +123,13 @@ interface PageLayoutProps {
   onNavigate?: (s: NavSection) => void;
   navItems?: { section: NavSection; icon: any; label: string }[];
   style?: React.CSSProperties;
-  onMenu?: () => void;
+  onOpenMenu?: () => void;
 }
 
-const PageLayout: React.FC<PageLayoutProps> = ({ title, children, onBack, onLogout, showBottomNav, currentSection, onNavigate, navItems, style, onMenu }) => (
+const PageLayout: React.FC<PageLayoutProps> = ({ title, children, onBack, onLogout, showBottomNav, currentSection, onNavigate, navItems, style, onOpenMenu }) => (
   <div className="bg-brand-dark min-h-screen pb-24 text-white transition-colors duration-500" style={style}>
-    <Header title={title} onLogout={onLogout} onBack={onBack} onMenu={onMenu} />
-    <div className="p-4 animate-fade-in relative z-10">
+    <Header title={title} onLogout={onLogout} onBack={onBack} onOpenMenu={onOpenMenu} isHome={currentSection === NavSection.HOME} />
+    <div className="p-4 animate-fade-in">
       {children}
     </div>
     {showBottomNav && currentSection && onNavigate && navItems && (
@@ -172,6 +137,56 @@ const PageLayout: React.FC<PageLayoutProps> = ({ title, children, onBack, onLogo
     )}
   </div>
 );
+
+const Sidebar = ({ isOpen, onClose, navItems, currentSection, onNavigate, user, onLogout }: any) => {
+  return (
+    <>
+      <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] transition-opacity duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={onClose} />
+      <div className={`fixed top-0 left-0 h-full w-72 bg-brand-dark border-r border-gray-800 z-[70] transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="p-4 border-b border-gray-800 flex items-center justify-between bg-brand-card">
+          <div className="flex items-center gap-3">
+            <img src={user?.avatar || `https://ui-avatars.com/api/?name=${user?.nickname}&background=random`} className="w-10 h-10 rounded-full object-cover border border-gray-700" alt="Avatar" />
+            <div>
+              <p className="text-white font-bold text-sm">{user?.nickname}</p>
+              <p className="text-brand-orange text-[10px] uppercase tracking-widest">{user?.graduation}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-white p-1 rounded-lg hover:bg-gray-800"><X size={20}/></button>
+        </div>
+        <div className="flex-1 overflow-y-auto py-2 scrollbar-thin scrollbar-thumb-gray-800">
+          {user?.role === UserRole.ADMIN && (
+            <button 
+              onClick={() => { onNavigate(NavSection.ADMIN_PANEL); onClose(); }}
+              className={`w-full flex items-center gap-4 px-6 py-3 transition-colors ${currentSection === NavSection.ADMIN_PANEL ? 'bg-brand-red/10 text-brand-red border-r-4 border-brand-red' : 'text-brand-red hover:bg-gray-800'}`}
+            >
+              <Shield size={20} />
+              <span className="font-bold text-sm uppercase tracking-wide">PAINEL ADM</span>
+            </button>
+          )}
+          {navItems.map((item: any) => {
+            const Icon = ICON_MAP[item.icon] || Home;
+            const isActive = currentSection === item.section;
+            return (
+              <button 
+                key={item.section}
+                onClick={() => { onNavigate(item.section); onClose(); }}
+                className={`w-full flex items-center gap-4 px-6 py-3 transition-colors ${isActive ? 'bg-brand-orange/10 text-brand-orange border-r-4 border-brand-orange' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}
+              >
+                <Icon size={20} />
+                <span className="font-bold text-sm uppercase tracking-wide">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="p-4 border-t border-gray-800 bg-brand-card">
+          <button onClick={() => { onLogout(); onClose(); }} className="w-full flex items-center gap-3 px-4 py-3 text-brand-red hover:bg-red-900/20 rounded-xl transition-colors font-bold text-sm uppercase justify-center border border-red-900/30">
+            <LogOut size={18} /> Sair do App
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
 
 // --- MAIN APP ---
 
@@ -181,31 +196,22 @@ export default function App() {
   const [lang, setLang] = useState<Language>(Language.PT);
   const [currentSection, setCurrentSection] = useState<NavSection>(NavSection.HOME);
   const [loginMode, setLoginMode] = useState<'MEMBER' | 'ADMIN' | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // --- DATABASE STATE (Simulating Backend) ---
-  const [masters, setMasters] = useState<Master[]>(INITIAL_MASTERS);
-  const [locations, setLocations] = useState<TrainingLocation[]>(INITIAL_LOCATIONS);
-  const [events, setEvents] = useState<Event[]>(INITIAL_EVENTS);
-  const [historyText, setHistoryText] = useState(`A Capoeira é uma expressão cultural brasileira que mistura arte marcial, esporte, cultura popular, dança e música. 
-
-Fundado em 1998 pelo Mestre Duende, o Grupo Incendeia Capoeira nasceu com a missão de preservar as raízes da capoeira angola e regional, focando na disciplina, respeito e evolução constante dos seus membros.
-
-Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da ancestralidade através de treinos rigorosos, rodas vibrantes e um forte senso de comunidade. Hoje, o grupo conta com núcleos em diversas cidades, levando a arte da capoeira para jovens e adultos de todas as idades.`);
+  // --- DATABASE STATE ---
+  const [masters, setMasters] = useState<Master[]>([]);
+  const [locations, setLocations] = useState<TrainingLocation[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [historyText, setHistoryText] = useState('');
   const [members, setMembers] = useState<User[]>([]); 
-  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([
-    { id: 'g1', type: 'image', url: 'https://picsum.photos/seed/capo1/800/600', title: 'Roda de Batizado', description: 'Momento épico do último batizado.', likes: [], comments: [], uploadedBy: 'admin', timestamp: Date.now() },
-    { id: 'g2', type: 'image', url: 'https://picsum.photos/seed/capo2/800/600', title: 'Treino de Salto', description: 'Foco na agilidade.', likes: [], comments: [], uploadedBy: 'admin', timestamp: Date.now() - 100000 },
-  ]);
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [liveLink, setLiveLink] = useState("https://meet.google.com");
-  const [forumPosts, setForumPosts] = useState<ForumPost[]>([
-    { id: '1', author: 'Mestre Duende', title: 'Dicas para a Roda de Rua', content: 'Sempre mantenha o olho no seu oponente e respeite o ritmo do berimbau.', comments: [] },
-    { id: '2', author: 'Gafanhoto', title: 'Como melhorar a ponte?', content: 'Estou tendo dificuldade na flexibilidade das costas. Alguém tem exercícios?', comments: [] },
-    { id: '3', author: 'Candeia', title: 'Músicas novas para o treino', content: 'Fiz uma playlist com as melhores ladainhas e corridos. Quem quer?', comments: [] }
-  ]);
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    { id: '1', userId: 'admin', nickname: 'Mestre Duende', text: 'Salve capoeira! Treino hoje às 19h.', timestamp: Date.now() - 3600000, isAdmin: true },
-    { id: '2', userId: 'u1', nickname: 'Gafanhoto', text: 'Opa, estarei lá!', timestamp: Date.now() - 1800000, isAdmin: false }
-  ]);
+  const [forumPosts, setForumPosts] = useState<ForumPost[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
   
   // --- LAYOUT & NAV STATE ---
   const [layoutConfig, setLayoutConfig] = useState({
@@ -219,16 +225,82 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
     fontSize: 16,
   });
   const [navConfig, setNavConfig] = useState<NavItemConfig[]>(INITIAL_NAV_CONFIG);
-  const [graduations, setGraduations] = useState<GraduationSystem[]>(INITIAL_GRADUATIONS);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  
-  // --- ADMIN STATE ---
-  const [adminCount, setAdminCount] = useState(0);
+
+  // --- AUTH LISTENER ---
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        userService.getProfile(firebaseUser.uid, (profile) => {
+          if (profile) {
+            setUser(profile);
+          } else {
+            // Create profile if it doesn't exist
+            const newUser: User = {
+              id: firebaseUser.uid,
+              nickname: firebaseUser.displayName || 'Capoeirista',
+              role: UserRole.MEMBER,
+              graduation: 'Iniciante',
+              graduationColor: '#22c55e',
+              name: firebaseUser.displayName || '',
+            };
+            userService.saveProfile(newUser);
+            setUser(newUser);
+          }
+          setLoading(false);
+        });
+      } else {
+        setUser(null);
+        setLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // --- DATA FETCHING ---
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubMasters = getCollection<Master>('masters', setMasters);
+    const unsubLocations = getCollection<TrainingLocation>('locations', setLocations);
+    const unsubEvents = getCollection<Event>('events', setEvents);
+    const unsubGallery = getCollection<GalleryItem>('gallery', setGalleryItems);
+    const unsubChat = getCollection<ChatMessage>('chat', setChatMessages);
+    const unsubForum = getCollection<ForumPost>('forum', setForumPosts);
+    const unsubUsers = getCollection<User>('users', setMembers);
+    const unsubPartners = getCollection<Partner>('partners', setPartners);
+    const unsubProducts = getCollection<Product>('products', setProducts);
+    
+    // Payments: Admins see all, members see only theirs
+    const paymentConstraints = user.role === UserRole.ADMIN ? [] : [where('userId', '==', user.id)];
+    const unsubPayments = getCollection<Payment>('payments', setPayments, paymentConstraints);
+    
+    const unsubHistory = configService.getHistory(setHistoryText);
+    const unsubLayout = configService.getLayout(setLayoutConfig);
+    const unsubNav = configService.getNavigation(setNavConfig);
+
+    return () => {
+      unsubMasters();
+      unsubLocations();
+      unsubEvents();
+      unsubGallery();
+      unsubChat();
+      unsubForum();
+      unsubUsers();
+      unsubPartners();
+      unsubProducts();
+      unsubPayments();
+      unsubHistory();
+      unsubLayout();
+      unsubNav();
+    };
+  }, [user]);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editingLocation, setEditingLocation] = useState<TrainingLocation | null>(null);
   const [editingMaster, setEditingMaster] = useState<Master | null>(null);
   const [editingGalleryItem, setEditingGalleryItem] = useState<GalleryItem | null>(null);
-  const [editingGraduation, setEditingGraduation] = useState<GraduationSystem | null>(null);
+  const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
 
   // --- DYNAMIC FONT LOADING ---
   useEffect(() => {
@@ -242,68 +314,143 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
 
   // --- ACTIONS ---
 
-  const handleLogin = (role: UserRole, nickname: string, pass: string) => {
-    if (!nickname || !pass) return alert("Preencha todos os campos!");
-    if (role === UserRole.ADMIN) {
-      if (adminCount >= 2) { /* Logic for limiting admins */ }
-      setAdminCount(prev => prev + 1);
+  const handleLogin = async (role: UserRole, nickname: string, pass: string, isGoogle: boolean = false) => {
+    try {
+      let res;
+      if (isGoogle) {
+        const provider = new GoogleAuthProvider();
+        res = await signInWithPopup(auth, provider);
+      } else {
+        if (!nickname || !pass) return toast.error("Preencha todos os campos!");
+        const email = `${nickname.toLowerCase().replace(/\s+/g, '')}@incendeia.com`;
+        try {
+          res = await signInWithEmailAndPassword(auth, email, pass);
+        } catch (e: any) {
+          if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
+            res = await createUserWithEmailAndPassword(auth, email, pass);
+          } else {
+            throw e;
+          }
+        }
+      }
+
+      if (res && res.user) {
+        // Check if user profile exists
+        const profile = await userService.getProfileAsync(res.user.uid);
+        if (!profile) {
+          const newUser: User = {
+            id: res.user.uid,
+            nickname: res.user.displayName || nickname || 'Guerreiro',
+            name: res.user.displayName || nickname || 'Guerreiro',
+            role: role,
+            graduation: 'Iniciante',
+            graduationColor: '#22c55e',
+            since: '1 mês',
+            avatar: res.user.photoURL || undefined
+          };
+          await userService.saveProfile(newUser);
+        }
+        toast.success("Bem-vindo!");
+      }
+
+      setCurrentSection(NavSection.HOME);
+      setLoginMode(null);
+    } catch (error: any) {
+      console.error(error);
+      toast.error("Erro ao entrar: " + error.message);
     }
-    const newUser: User = {
-      id: Date.now().toString(),
-      nickname, name: nickname, role, graduation: role === UserRole.MEMBER ? (graduations[0]?.name || 'Iniciante') : 'Mestre',
-      graduationColor: role === UserRole.MEMBER ? (graduations[0]?.color || '#22c55e') : '#FFFFFF', since: '1 mês'
-    };
-    setMembers(prev => [...prev, newUser]);
-    setUser(newUser);
-    setCurrentSection(NavSection.HOME);
-    setLoginMode(null);
   };
 
-  const handleLogout = () => { setUser(null); setCurrentSection(NavSection.HOME); setLoginMode(null); };
+  const handleLogout = () => { signOut(auth); setCurrentSection(NavSection.HOME); setLoginMode(null); };
   const goHome = () => setCurrentSection(NavSection.HOME);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string, type: 'image'|'video') => void) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, callback: (url: string, type: 'image'|'video') => void) => {
       const file = e.target.files?.[0];
       if (file) {
           const type = file.type.startsWith('video') ? 'video' : 'image';
-          const reader = new FileReader();
-          reader.onloadend = () => callback(reader.result as string, type);
-          reader.readAsDataURL(file);
+          const storageRef = ref(storage, `uploads/${Date.now()}_${file.name}`);
+          
+          toast.promise(
+            (async () => {
+              await uploadBytes(storageRef, file);
+              const url = await getDownloadURL(storageRef);
+              callback(url, type);
+              return url;
+            })(),
+            {
+              loading: 'Enviando arquivo...',
+              success: 'Arquivo enviado!',
+              error: 'Erro ao enviar arquivo.',
+            }
+          );
       }
   };
 
-  const handleGalleryUpload = (url: string, type: 'image'|'video') => {
+  const handleGalleryUpload = async (url: string, type: 'image'|'video') => {
     if (!user) return;
-    const newItem: GalleryItem = { id: Date.now().toString(), type, url, likes: [], comments: [], uploadedBy: user.id, timestamp: Date.now() };
-    setGalleryItems(prev => [newItem, ...prev]);
+    const newItem: GalleryItem = { 
+      id: Date.now().toString(), 
+      type, 
+      url, 
+      likes: [], 
+      comments: [], 
+      uploadedBy: user.id, 
+      timestamp: Date.now() 
+    };
+    await addDocument('gallery', newItem);
+    toast.success("Mídia enviada!");
   };
 
-  const handleLike = (itemId: string) => {
+  const handleLike = async (itemId: string) => {
     if (!user) return;
-    setGalleryItems(prev => prev.map(item => item.id === itemId ? { ...item, likes: item.likes.includes(user.id) ? item.likes.filter(id => id !== user.id) : [...item.likes, user.id] } : item));
+    const item = galleryItems.find(i => i.id === itemId);
+    if (!item) return;
+    
+    const newLikes = item.likes.includes(user.id) 
+      ? item.likes.filter(id => id !== user.id) 
+      : [...item.likes, user.id];
+      
+    await updateDocument<GalleryItem>('gallery', { id: itemId, likes: newLikes });
   };
 
-  const handleComment = (itemId: string, text: string) => {
+  const handleComment = async (itemId: string, text: string) => {
     if (!user || !text.trim()) return;
-    setGalleryItems(prev => prev.map(item => item.id === itemId ? { ...item, comments: [...item.comments, { id: Date.now().toString(), userId: user.id, nickname: user.nickname, text, timestamp: Date.now() }] } : item));
+    const item = galleryItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    const newComments = [...item.comments, { 
+      id: Date.now().toString(), 
+      userId: user.id, 
+      nickname: user.nickname, 
+      text, 
+      timestamp: Date.now() 
+    }];
+    
+    await updateDocument<GalleryItem>('gallery', { id: itemId, comments: newComments });
+    toast.success("Comentário enviado!");
   };
 
-  const deleteGalleryItem = (id: string) => setGalleryItems(prev => prev.filter(i => i.id !== id));
+  const deleteGalleryItem = async (id: string) => {
+    await deleteDocument('gallery', id);
+    toast.success("Mídia removida!");
+  };
 
   // --- NAV CONFIG ACTIONS ---
-  const moveNavItem = (index: number, direction: 'up' | 'down') => {
+  const moveNavItem = async (index: number, direction: 'up' | 'down') => {
     const newConfig = [...navConfig];
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex >= 0 && targetIndex < newConfig.length) {
       [newConfig[index], newConfig[targetIndex]] = [newConfig[targetIndex], newConfig[index]];
       setNavConfig(newConfig);
+      await configService.saveNavigation(newConfig);
     }
   };
 
-  const updateNavItem = (index: number, field: keyof NavItemConfig, value: any) => {
+  const updateNavItem = async (index: number, field: keyof NavItemConfig, value: any) => {
     const newConfig = [...navConfig];
     (newConfig[index] as any)[field] = value;
     setNavConfig(newConfig);
+    await configService.saveNavigation(newConfig);
   };
 
   const getResolvedBottomNavItems = () => {
@@ -350,12 +497,12 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
         </div>
         <div className="w-full max-w-xs space-y-4 z-10 mb-12">
           {!loginMode ? (
-            <div className="grid grid-cols-2 gap-4 w-full">
-              <FlameButton label="MEMBROS" onClick={() => setLoginMode('MEMBER')} variant="secondary" className="py-2.5 text-xs shadow-lg" />
-              <FlameButton label="PAINEL ADM" onClick={() => setLoginMode('ADMIN')} variant="primary" className="py-2.5 text-xs shadow-lg" />
-            </div>
+            <>
+              <FlameButton label="MEMBROS" onClick={() => setLoginMode('MEMBER')} variant="secondary" className="w-full py-3 text-sm" />
+              <FlameButton label="PAINEL ADM" onClick={() => setLoginMode('ADMIN')} variant="primary" className="w-full py-3 text-sm" />
+            </>
           ) : (
-             <LoginForm mode={loginMode} onCancel={() => setLoginMode(null)} onSubmit={(n, p) => handleLogin(loginMode === 'ADMIN' ? UserRole.ADMIN : UserRole.MEMBER, n, p)} />
+             <LoginForm mode={loginMode} onCancel={() => setLoginMode(null)} onSubmit={(n, p, g) => handleLogin(loginMode === 'ADMIN' ? UserRole.ADMIN : UserRole.MEMBER, n, p, g)} />
           )}
         </div>
         <Footer />
@@ -382,7 +529,9 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
                    <AdminMenuButton label="Histórico" icon={BookOpen} onClick={() => setCurrentSection(NavSection.HISTORY)} />
                    <AdminMenuButton label="Locais" icon={MapPin} onClick={() => setCurrentSection(NavSection.LOCATIONS)} />
                    <AdminMenuButton label="Agenda" icon={Calendar} onClick={() => setCurrentSection(NavSection.EVENTS)} />
-                   <AdminMenuButton label="Graduação" icon={Award} onClick={() => setCurrentSection(NavSection.GRADUATIONS)} />
+                   <AdminMenuButton label="Parceiros" icon={Heart} onClick={() => setCurrentSection(NavSection.PARTNERS)} />
+                   <AdminMenuButton label="Loja" icon={ShoppingBag} onClick={() => setCurrentSection(NavSection.STORE)} />
+                   <AdminMenuButton label="Financeiro" icon={DollarSign} onClick={() => setCurrentSection(NavSection.FINANCIAL)} />
                    <AdminMenuButton label="Live Link" icon={Video} onClick={() => {
                       const newLink = prompt("Link Live:", liveLink);
                       if(newLink) setLiveLink(newLink);
@@ -537,7 +686,10 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-gray-700">
-                 <FlameButton label="SALVAR TUDO" onClick={() => alert("Layout salvo com sucesso!")} className="flex-1" />
+                 <FlameButton label="SALVAR TUDO" onClick={async () => {
+                    await configService.saveLayout(layoutConfig);
+                    toast.success("Layout salvo com sucesso!");
+                 }} className="flex-1" />
               </div>
            </div>
         </PageLayout>
@@ -553,7 +705,10 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
                    <h2 className="font-suez text-2xl text-white">Nossa História</h2>
                    {user.role === UserRole.ADMIN && (
                       <div className="flex gap-2">
-                         <FlameButton label="SALVAR" iconSize={12} className="px-3 py-1" onClick={() => alert("Histórico Atualizado!")} />
+                         <FlameButton label="SALVAR" iconSize={12} className="px-3 py-1" onClick={async () => {
+                            await configService.saveHistory(historyText);
+                            toast.success("Histórico atualizado!");
+                         }} />
                       </div>
                    )}
                 </div>
@@ -588,16 +743,18 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
                       <input id="evtLoc" type="text" placeholder="Local" defaultValue={editingEvent?.location || ''} className="bg-brand-dark border border-gray-600 rounded-lg p-3 text-white text-sm" />
                    </div>
                    <div className="flex gap-2">
-                     <FlameButton label={editingEvent ? "SALVAR" : "ADICIONAR"} onClick={() => {
+                     <FlameButton label={editingEvent ? "SALVAR" : "ADICIONAR"} onClick={async () => {
                         const title = (document.getElementById('evtTitle') as HTMLInputElement).value;
                         const date = (document.getElementById('evtDate') as HTMLInputElement).value;
                         const loc = (document.getElementById('evtLoc') as HTMLInputElement).value;
                         if(title) {
                            if (editingEvent) {
-                              setEvents(events.map(e => e.id === editingEvent.id ? { ...e, title, date, location: loc } : e));
+                              await updateDocument<Event>('events', { id: editingEvent.id, title, date, location: loc });
                               setEditingEvent(null);
+                              toast.success("Evento atualizado!");
                            } else {
-                              setEvents([...events, { id: Date.now().toString(), title, date, location: loc }]);
+                              await addDocument<Event>('events', { title, date, location: loc });
+                              toast.success("Evento adicionado!");
                            }
                            (document.getElementById('evtTitle') as HTMLInputElement).value = '';
                            (document.getElementById('evtDate') as HTMLInputElement).value = '';
@@ -626,12 +783,18 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
                            <button onClick={() => {
                               setEditingEvent(ev);
                               setTimeout(() => {
-                                 (document.getElementById('evtTitle') as HTMLInputElement).value = ev.title;
-                                 (document.getElementById('evtDate') as HTMLInputElement).value = ev.date;
-                                 (document.getElementById('evtLoc') as HTMLInputElement).value = ev.location;
+                                 const titleInput = document.getElementById('evtTitle') as HTMLInputElement;
+                                 const dateInput = document.getElementById('evtDate') as HTMLInputElement;
+                                 const locInput = document.getElementById('evtLoc') as HTMLInputElement;
+                                 if (titleInput) titleInput.value = ev.title;
+                                 if (dateInput) dateInput.value = ev.date;
+                                 if (locInput) locInput.value = ev.location;
                               }, 0);
                            }} className="p-2 bg-gray-800 rounded-full text-gray-400 hover:text-white"><Edit3 size={14}/></button>
-                           <button onClick={() => setEvents(events.filter(e => e.id !== ev.id))} className="p-2 bg-red-900/50 rounded-full text-red-500 hover:bg-red-900"><Trash2 size={14}/></button>
+                           <button onClick={async () => {
+                              await deleteDocument('events', ev.id);
+                              toast.success("Evento removido!");
+                           }} className="p-2 bg-red-900/50 rounded-full text-red-500 hover:bg-red-900"><Trash2 size={14}/></button>
                         </div>
                      )}
                   </div>
@@ -656,15 +819,17 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
                      <input id="locAddr" type="text" placeholder="Endereço" defaultValue={editingLocation?.address || ''} className="w-full bg-brand-dark border border-gray-600 rounded-lg p-3 text-white text-sm" />
                      <input id="locResp" type="text" placeholder="Responsável" defaultValue={editingLocation?.responsible || ''} className="w-full bg-brand-dark border border-gray-600 rounded-lg p-3 text-white text-sm" />
                      <div className="flex gap-2">
-                       <FlameButton label={editingLocation ? "SALVAR" : "ADICIONAR"} onClick={() => {
+                       <FlameButton label={editingLocation ? "SALVAR" : "ADICIONAR"} onClick={async () => {
                           const addr = (document.getElementById('locAddr') as HTMLInputElement).value;
                           const resp = (document.getElementById('locResp') as HTMLInputElement).value;
                           if(addr) {
                              if (editingLocation) {
-                                setLocations(locations.map(l => l.id === editingLocation.id ? { ...l, address: addr, responsible: resp } : l));
+                                await updateDocument<TrainingLocation>('locations', { id: editingLocation.id, address: addr, responsible: resp });
                                 setEditingLocation(null);
+                                toast.success("Local atualizado!");
                              } else {
-                                setLocations([...locations, { id: Date.now().toString(), address: addr, responsible: resp, phone: '', mapLink: '' }]);
+                                await addDocument<TrainingLocation>('locations', { address: addr, responsible: resp, phone: '', mapLink: '' });
+                                toast.success("Local adicionado!");
                              }
                              (document.getElementById('locAddr') as HTMLInputElement).value = '';
                              (document.getElementById('locResp') as HTMLInputElement).value = '';
@@ -687,11 +852,16 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
                            <button onClick={() => {
                               setEditingLocation(loc);
                               setTimeout(() => {
-                                 (document.getElementById('locAddr') as HTMLInputElement).value = loc.address;
-                                 (document.getElementById('locResp') as HTMLInputElement).value = loc.responsible;
+                                 const addrInput = document.getElementById('locAddr') as HTMLInputElement;
+                                 const respInput = document.getElementById('locResp') as HTMLInputElement;
+                                 if (addrInput) addrInput.value = loc.address;
+                                 if (respInput) respInput.value = loc.responsible;
                               }, 0);
                            }} className="p-2 bg-gray-800 rounded-full text-gray-400 hover:text-white"><Edit3 size={14}/></button>
-                           <button onClick={() => setLocations(locations.filter(l => l.id !== loc.id))} className="p-2 bg-red-900/50 rounded-full text-red-500 hover:bg-red-900"><Trash2 size={14}/></button>
+                           <button onClick={async () => {
+                              await deleteDocument('locations', loc.id);
+                              toast.success("Local removido!");
+                           }} className="p-2 bg-red-900/50 rounded-full text-red-500 hover:bg-red-900"><Trash2 size={14}/></button>
                         </div>
                       )}
                    </div>
@@ -712,11 +882,12 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
                            <input id="galTitle" type="text" placeholder="Título" defaultValue={editingGalleryItem.title || ''} className="w-full bg-brand-dark border border-gray-600 rounded-lg p-3 text-white text-sm" />
                            <textarea id="galDesc" placeholder="Descrição" defaultValue={editingGalleryItem.description || ''} className="w-full bg-brand-dark border border-gray-600 rounded-lg p-3 text-white text-sm resize-none h-20" />
                            <div className="flex gap-2">
-                             <FlameButton label="SALVAR" onClick={() => {
+                             <FlameButton label="SALVAR" onClick={async () => {
                                 const title = (document.getElementById('galTitle') as HTMLInputElement).value;
                                 const desc = (document.getElementById('galDesc') as HTMLTextAreaElement).value;
-                                setGalleryItems(galleryItems.map(i => i.id === editingGalleryItem.id ? { ...i, title, description: desc } : i));
+                                await updateDocument('gallery', { id: editingGalleryItem.id, title, description: desc });
                                 setEditingGalleryItem(null);
+                                toast.success("Mídia atualizada!");
                              }} className="flex-1" />
                              <FlameButton label="CANCELAR" variant="secondary" onClick={() => setEditingGalleryItem(null)} />
                            </div>
@@ -814,15 +985,17 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
                      </label>
                    </div>
                    <div className="pt-2 flex gap-2">
-                     <FlameButton label={editingMaster ? "SALVAR" : "ADICIONAR"} onClick={() => {
+                     <FlameButton label={editingMaster ? "SALVAR" : "ADICIONAR"} onClick={async () => {
                         const name = (document.getElementById('masterName') as HTMLInputElement).value;
                         const grad = (document.getElementById('masterGrad') as HTMLInputElement).value;
                         if(name) {
                            if (editingMaster) {
-                              setMasters(masters.map(m => m.id === editingMaster.id ? { ...m, name, graduation: grad } : m));
+                              await updateDocument<Master>('masters', { id: editingMaster.id, name, graduation: grad });
                               setEditingMaster(null);
+                              toast.success("Mestre atualizado!");
                            } else {
-                              setMasters([...masters, { id: Date.now().toString(), name, graduation: grad, history: '' }]);
+                              await addDocument<Master>('masters', { name, graduation: grad, history: '' });
+                              toast.success("Mestre adicionado!");
                            }
                            (document.getElementById('masterName') as HTMLInputElement).value = '';
                            (document.getElementById('masterGrad') as HTMLInputElement).value = '';
@@ -848,11 +1021,16 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
                         <button onClick={() => {
                            setEditingMaster(m);
                            setTimeout(() => {
-                              (document.getElementById('masterName') as HTMLInputElement).value = m.name;
-                              (document.getElementById('masterGrad') as HTMLInputElement).value = m.graduation;
+                              const nameInput = document.getElementById('masterName') as HTMLInputElement;
+                              const gradInput = document.getElementById('masterGrad') as HTMLInputElement;
+                              if (nameInput) nameInput.value = m.name;
+                              if (gradInput) gradInput.value = m.graduation;
                            }, 0);
                         }} className="text-gray-400 hover:text-white p-2 bg-gray-800 rounded-full"><Edit3 size={14}/></button>
-                        <button onClick={() => setMasters(masters.filter(x => x.id !== m.id))} className="text-red-500 hover:text-red-400 p-2 bg-gray-800 rounded-full"><Trash2 size={14}/></button>
+                        <button onClick={async () => {
+                           await deleteDocument('masters', m.id);
+                           toast.success("Mestre removido!");
+                        }} className="text-red-500 hover:text-red-400 p-2 bg-gray-800 rounded-full"><Trash2 size={14}/></button>
                     </div>
                   )}
                </div>
@@ -895,22 +1073,10 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
               </div>
 
               <div className="w-full space-y-5">
-                 <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-3 gap-4">
                     <div className="bg-brand-dark/50 p-3 rounded-2xl border border-gray-800 shadow-inner">
                        <label className="text-[9px] font-black text-brand-orange uppercase block mb-1 tracking-tighter">Apelido</label>
                        <input type="text" value={user.nickname} onChange={(e) => setUser({...user, nickname: e.target.value})} className="w-full bg-transparent border-none text-white text-sm font-bold focus:outline-none" />
-                    </div>
-                    <div className="bg-brand-dark/50 p-3 rounded-2xl border border-gray-800 shadow-inner">
-                       <label className="text-[9px] font-black text-brand-orange uppercase block mb-1 tracking-tighter">Nível</label>
-                       <select 
-                          value={user.graduation} 
-                          onChange={(e) => setUser({...user, graduation: e.target.value})}
-                          className="w-full bg-transparent border-none text-white text-sm font-bold focus:outline-none appearance-none cursor-pointer"
-                       >
-                          {GRADUATION_LEVELS.map(level => (
-                             <option key={level} value={level} className="bg-brand-dark text-white">{level}</option>
-                          ))}
-                       </select>
                     </div>
                     <div className="bg-brand-dark/50 p-3 rounded-2xl border border-gray-800 shadow-inner">
                        <label className="text-[9px] font-black text-brand-orange uppercase block mb-1 tracking-tighter">Data Nasc.</label>
@@ -945,7 +1111,10 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
                     </div>
                  </div>
 
-                 <FlameButton label="SALVAR PERFIL" onClick={() => alert("Perfil atualizado com sucesso!")} className="w-full py-4 mt-4 shadow-[0_10px_20px_rgba(217,4,41,0.2)]" />
+                 <FlameButton label="SALVAR PERFIL" onClick={async () => {
+                    await userService.saveProfile(user);
+                    toast.success("Perfil atualizado com sucesso!");
+                 }} className="w-full py-4 mt-4 shadow-[0_10px_20px_rgba(217,4,41,0.2)]" />
               </div>
            </div>
         </PageLayout>
@@ -954,26 +1123,71 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
     
     // 6. STORE
     if (currentSection === NavSection.STORE) {
-      const products = [
-        { id: '1', name: 'Abadá Oficial', price: 85.00, color: 'Branco', qty: 10, img: 'https://picsum.photos/seed/abada/400/400' },
-        { id: '2', name: 'Camiseta Grupo', price: 45.00, color: 'Preto', qty: 25, img: 'https://picsum.photos/seed/shirt/400/400' },
-        { id: '3', name: 'Berimbau Completo', price: 150.00, color: 'Natural', qty: 5, img: 'https://picsum.photos/seed/berimbau/400/400' },
-      ];
-
       return (
         <PageLayout title="LOJA DO GRUPO" onBack={goHome} onLogout={handleLogout} showBottomNav={true} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle}>
            <div className="space-y-6">
+              {user.role === UserRole.ADMIN && (
+                <button 
+                  onClick={() => setEditingProduct({ name: '', price: 0, color: '', qty: 0, img: 'https://picsum.photos/seed/product/400/400' })}
+                  className="w-full bg-brand-orange/20 border border-brand-orange/50 text-brand-orange py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 mb-4"
+                >
+                  <Plus size={16} /> ADICIONAR PRODUTO
+                </button>
+              )}
+
+              {editingProduct && (
+                <div className="bg-brand-card p-5 rounded-3xl border border-brand-orange shadow-2xl space-y-4 mb-6">
+                  <h3 className="font-suez text-brand-orange uppercase text-sm">Editor de Produto</h3>
+                  <div className="space-y-3">
+                    <input type="text" value={editingProduct.name} onChange={e => setEditingProduct({...editingProduct, name: e.target.value})} placeholder="Nome do Produto" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="number" value={editingProduct.price} onChange={e => setEditingProduct({...editingProduct, price: Number(e.target.value)})} placeholder="Preço" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                      <input type="number" value={editingProduct.qty} onChange={e => setEditingProduct({...editingProduct, qty: Number(e.target.value)})} placeholder="Estoque" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                    </div>
+                    <input type="text" value={editingProduct.color} onChange={e => setEditingProduct({...editingProduct, color: e.target.value})} placeholder="Cor" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                    <div className="flex gap-2">
+                      <input type="text" value={editingProduct.img} onChange={e => setEditingProduct({...editingProduct, img: e.target.value})} placeholder="URL da Imagem" className="flex-1 bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                      <label className="bg-gray-800 p-2 rounded-xl cursor-pointer border border-gray-700">
+                        <Camera size={20} className="text-gray-400" />
+                        <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, (url) => setEditingProduct({...editingProduct, img: url}))} />
+                      </label>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <button onClick={() => setEditingProduct(null)} className="flex-1 bg-gray-800 text-white py-3 rounded-xl font-bold text-xs">CANCELAR</button>
+                      <button 
+                        onClick={async () => {
+                          if (editingProduct.id) await updateDocument<Product>('products', editingProduct);
+                          else await addDocument<Product>('products', editingProduct);
+                          setEditingProduct(null);
+                          toast.success("Produto salvo!");
+                        }}
+                        className="flex-1 bg-brand-orange text-white py-3 rounded-xl font-bold text-xs"
+                      >
+                        SALVAR
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {products.map(product => (
-                 <div key={product.id} className="bg-brand-card rounded-3xl overflow-hidden border border-gray-800 shadow-xl">
+                 <div key={product.id} className="bg-brand-card rounded-3xl overflow-hidden border border-gray-800 shadow-xl relative group">
                     <div className="relative h-64 bg-black">
                        <img src={product.img} className="w-full h-full object-cover opacity-80" alt={product.name} />
                        <div className="absolute top-4 right-4 bg-brand-red px-3 py-1 rounded-full text-xs font-black shadow-lg">R$ {product.price.toFixed(2)}</div>
+                       
+                       {user.role === UserRole.ADMIN && (
+                        <div className="absolute top-4 left-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => setEditingProduct(product)} className="p-1.5 bg-gray-800/80 backdrop-blur rounded-lg text-blue-400 border border-gray-700"><Edit3 size={14}/></button>
+                          <button onClick={async () => { if(confirm("Excluir produto?")) await deleteDocument('products', product.id!); toast.success("Removido!"); }} className="p-1.5 bg-gray-800/80 backdrop-blur rounded-lg text-brand-red border border-gray-700"><Trash2 size={14}/></button>
+                        </div>
+                      )}
                     </div>
                     <div className="p-5 space-y-4">
                        <div className="flex justify-between items-start">
                           <div>
                              <h3 className="font-suez text-xl text-white">{product.name}</h3>
-                             <p className="text-xs text-gray-500">Cor: {product.color} • Estoque: {product.qty}</p>
+                             <p className="text-xs text-gray-500">Color: {product.color} • Stock: {product.qty}</p>
                           </div>
                           <div className="bg-brand-dark p-2 rounded-xl border border-gray-700">
                              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=50x50&data=pix-key-placeholder-${product.id}`} className="w-10 h-10 invert opacity-70" alt="PIX QR" />
@@ -992,63 +1206,9 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
                     </div>
                  </div>
               ))}
-           </div>
-        </PageLayout>
-      );
-    }
-
-    // 8. GRADUATIONS
-    if (currentSection === NavSection.GRADUATIONS) {
-      return (
-        <PageLayout title="SISTEMA DE GRADUAÇÃO" onBack={goHome} onLogout={handleLogout} showBottomNav={true} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle}>
-           <div className="space-y-6">
-              {user.role === UserRole.ADMIN && (
-                <div className="bg-brand-card p-5 rounded-2xl border border-gray-700 shadow-lg">
-                   <h3 className="font-suez text-white mb-4 flex items-center gap-2"><Award className="text-brand-orange" size={18}/> {editingGraduation ? 'EDITAR GRADUAÇÃO' : 'NOVA GRADUAÇÃO'}</h3>
-                   <div className="space-y-4">
-                      <input type="text" placeholder="Nome da Graduação" value={editingGraduation?.name || ''} onChange={(e) => setEditingGraduation(prev => prev ? {...prev, name: e.target.value} : {id: '', name: e.target.value, color: '#ffffff', meaning: ''})} className="w-full bg-brand-dark p-3 rounded-xl border border-gray-700 text-white text-sm" />
-                      <div className="flex items-center gap-3">
-                         <input type="color" value={editingGraduation?.color || '#ffffff'} onChange={(e) => setEditingGraduation(prev => prev ? {...prev, color: e.target.value} : {id: '', name: '', color: e.target.value, meaning: ''})} className="h-10 w-10 rounded cursor-pointer bg-transparent border-0" />
-                         <span className="text-xs text-gray-400">Cor da Corda</span>
-                      </div>
-                      <textarea placeholder="Significado" value={editingGraduation?.meaning || ''} onChange={(e) => setEditingGraduation(prev => prev ? {...prev, meaning: e.target.value} : {id: '', name: '', color: '#ffffff', meaning: e.target.value})} className="w-full bg-brand-dark p-3 rounded-xl border border-gray-700 text-white text-sm h-24" />
-                      <div className="flex gap-2">
-                         <FlameButton label={editingGraduation?.id ? "ATUALIZAR" : "ADICIONAR"} onClick={() => {
-                            if(!editingGraduation?.name) return;
-                            if(editingGraduation.id) {
-                               setGraduations(prev => prev.map(g => g.id === editingGraduation.id ? editingGraduation : g));
-                            } else {
-                               setGraduations(prev => [...prev, {...editingGraduation, id: Date.now().toString()}]);
-                            }
-                            setEditingGraduation(null);
-                         }} className="flex-1 py-3" />
-                         {editingGraduation && <button onClick={() => setEditingGraduation(null)} className="px-4 py-3 bg-gray-800 text-white rounded-xl border border-gray-700"><X size={18}/></button>}
-                      </div>
-                   </div>
-                </div>
+              {products.length === 0 && !editingProduct && (
+                <div className="py-20 text-center text-gray-600">Nenhum produto cadastrado.</div>
               )}
-
-              <div className="space-y-4">
-                 <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest px-2">Graduações do Grupo</h4>
-                 {graduations.map((g) => (
-                    <div key={g.id} className="bg-brand-card p-5 rounded-3xl border border-gray-800 shadow-xl relative overflow-hidden group">
-                       <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: g.color }}></div>
-                       <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-suez text-xl text-white flex items-center gap-2">
-                             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: g.color, boxShadow: `0 0 10px ${g.color}` }}></div>
-                             {g.name}
-                          </h3>
-                          {user.role === UserRole.ADMIN && (
-                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => setEditingGraduation(g)} className="p-2 bg-gray-800 rounded-lg text-blue-400 hover:bg-gray-700"><Edit3 size={14}/></button>
-                                <button onClick={() => setGraduations(prev => prev.filter(item => item.id !== g.id))} className="p-2 bg-gray-800 rounded-lg text-brand-red hover:bg-gray-700"><Trash2 size={14}/></button>
-                             </div>
-                          )}
-                       </div>
-                       <p className="text-xs text-gray-400 leading-relaxed italic">"{g.meaning}"</p>
-                    </div>
-                 ))}
-              </div>
            </div>
         </PageLayout>
       );
@@ -1056,15 +1216,55 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
 
     // 7. FINANCIAL
     if (currentSection === NavSection.FINANCIAL) {
-      const payments = [
-        { month: 'Abril', year: 2026, value: 100.00, status: 'PAID' },
-        { month: 'Março', year: 2026, value: 100.00, status: 'PAID' },
-        { month: 'Maio', year: 2026, value: 100.00, status: 'PENDING' },
-      ];
+      const userPayments = payments.filter(p => p.userId === user.id);
+      const displayPayments = user.role === UserRole.ADMIN ? payments : userPayments;
 
       return (
         <PageLayout title="FINANCEIRO" onBack={goHome} onLogout={handleLogout} showBottomNav={true} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle}>
            <div className="space-y-6">
+              {user.role === UserRole.ADMIN && (
+                <button 
+                  onClick={() => setEditingPayment({ userId: '', month: '', year: new Date().getFullYear(), value: 100, status: 'PENDING' })}
+                  className="w-full bg-brand-orange/20 border border-brand-orange/50 text-brand-orange py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 mb-4"
+                >
+                  <Plus size={16} /> REGISTRAR PAGAMENTO
+                </button>
+              )}
+
+              {editingPayment && (
+                <div className="bg-brand-card p-5 rounded-3xl border border-brand-orange shadow-2xl space-y-4 mb-6">
+                  <h3 className="font-suez text-brand-orange uppercase text-sm">Editor de Pagamento</h3>
+                  <div className="space-y-3">
+                    <input type="text" value={editingPayment.userId} onChange={e => setEditingPayment({...editingPayment, userId: e.target.value})} placeholder="ID do Usuário" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="text" value={editingPayment.month} onChange={e => setEditingPayment({...editingPayment, month: e.target.value})} placeholder="Mês" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                      <input type="number" value={editingPayment.year} onChange={e => setEditingPayment({...editingPayment, year: Number(e.target.value)})} placeholder="Ano" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input type="number" value={editingPayment.value} onChange={e => setEditingPayment({...editingPayment, value: Number(e.target.value)})} placeholder="Valor" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                      <select value={editingPayment.status} onChange={e => setEditingPayment({...editingPayment, status: e.target.value as any})} className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white">
+                        <option value="PAID">PAGO</option>
+                        <option value="PENDING">PENDENTE</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <button onClick={() => setEditingPayment(null)} className="flex-1 bg-gray-800 text-white py-3 rounded-xl font-bold text-xs">CANCELAR</button>
+                      <button 
+                        onClick={async () => {
+                          if (editingPayment.id) await updateDocument<Payment>('payments', editingPayment);
+                          else await addDocument<Payment>('payments', editingPayment);
+                          setEditingPayment(null);
+                          toast.success("Pagamento salvo!");
+                        }}
+                        className="flex-1 bg-brand-orange text-white py-3 rounded-xl font-bold text-xs"
+                      >
+                        SALVAR
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="bg-gradient-to-br from-brand-card to-brand-dark p-6 rounded-3xl border border-gray-800 shadow-2xl relative overflow-hidden">
                  <div className="absolute -top-10 -right-10 w-40 h-40 bg-brand-red/10 rounded-full blur-3xl"></div>
                  <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest mb-4">Mensalidade Atual</h3>
@@ -1084,30 +1284,383 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
               </div>
 
               <div className="space-y-3">
-                 <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest px-2">Histórico de Pagamentos</h4>
-                 {payments.map((p, i) => (
-                    <div key={i} className="bg-brand-card p-4 rounded-2xl border border-gray-800 flex items-center justify-between shadow-md">
+                 <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest px-2">
+                   {user.role === UserRole.ADMIN ? 'Todos os Pagamentos' : 'Meu Histórico'}
+                 </h4>
+                 {displayPayments.map((p, i) => (
+                    <div key={i} className="bg-brand-card p-4 rounded-2xl border border-gray-800 flex items-center justify-between shadow-md relative group">
                        <div className="flex items-center gap-3">
                           <div className={`p-2 rounded-xl ${p.status === 'PAID' ? 'bg-green-900/20 text-green-500' : 'bg-red-900/20 text-red-500'}`}>
                              {p.status === 'PAID' ? <CheckCircle2 size={20} /> : <Clock size={20} />}
                           </div>
                           <div>
                              <p className="text-sm font-bold text-white">{p.month} {p.year}</p>
-                             <p className="text-[10px] text-gray-500">Valor: R$ {p.value.toFixed(2)}</p>
+                             <p className="text-[10px] text-gray-500">Valor: R$ {p.value.toFixed(2)} {user.role === UserRole.ADMIN && `• User: ${p.userId}`}</p>
                           </div>
                        </div>
-                       <span className={`text-[9px] font-black px-2 py-1 rounded-full border ${p.status === 'PAID' ? 'border-green-900/50 text-green-500' : 'border-red-900/50 text-red-500'}`}>
-                          {p.status === 'PAID' ? 'PAGO' : 'PENDENTE'}
-                       </span>
+                       <div className="flex items-center gap-2">
+                        <span className={`text-[9px] font-black px-2 py-1 rounded-full border ${p.status === 'PAID' ? 'border-green-900/50 text-green-500' : 'border-red-900/50 text-red-500'}`}>
+                            {p.status === 'PAID' ? 'PAGO' : 'PENDENTE'}
+                        </span>
+                        {user.role === UserRole.ADMIN && (
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => setEditingPayment(p)} className="p-1.5 bg-gray-800 rounded-lg text-blue-400 border border-gray-700"><Edit3 size={14}/></button>
+                            <button onClick={async () => { if(confirm("Excluir registro?")) await deleteDocument('payments', p.id!); toast.success("Removido!"); }} className="p-1.5 bg-gray-800 rounded-lg text-brand-red border border-gray-700"><Trash2 size={14}/></button>
+                          </div>
+                        )}
+                       </div>
                     </div>
                  ))}
+                 {displayPayments.length === 0 && !editingPayment && (
+                   <div className="py-10 text-center text-gray-600">Nenhum registro encontrado.</div>
+                 )}
               </div>
            </div>
         </PageLayout>
       );
     }
 
-    // Fallback/AI Sections
+    if (currentSection === NavSection.CHAT) {
+      return (
+        <PageLayout title="CHAT DO GRUPO" onBack={goHome} onLogout={handleLogout} showBottomNav={true} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle}>
+          <div className="flex flex-col h-[calc(100vh-180px)]">
+            <div className="flex-1 overflow-y-auto space-y-4 p-2">
+              {chatMessages.map(msg => (
+                <div key={msg.id} className={`flex flex-col ${msg.userId === user.id ? 'items-end' : 'items-start'}`}>
+                  <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${msg.userId === user.id ? 'bg-brand-red text-white rounded-tr-none' : 'bg-brand-card text-gray-200 rounded-tl-none border border-gray-800'}`}>
+                    <p className="text-[10px] font-bold text-brand-orange mb-1">{msg.nickname}</p>
+                    <p>{msg.text}</p>
+                  </div>
+                  <span className="text-[8px] text-gray-600 mt-1">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              ))}
+            </div>
+            <div className="p-4 bg-brand-card border-t border-gray-800 flex gap-2">
+              <input 
+                id="chat-input"
+                type="text" 
+                placeholder="Digite sua mensagem..." 
+                className="flex-1 bg-brand-dark border border-gray-700 rounded-full px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-orange"
+                onKeyDown={async (e) => {
+                  if (e.key === 'Enter') {
+                    const text = (e.target as HTMLInputElement).value;
+                    if (text.trim()) {
+                      await addDocument<ChatMessage>('chat', { userId: user.id, nickname: user.nickname, text, timestamp: Date.now(), isAdmin: user.role === UserRole.ADMIN });
+                      (e.target as HTMLInputElement).value = '';
+                    }
+                  }
+                }}
+              />
+              <button 
+                onClick={async () => {
+                  const input = document.getElementById('chat-input') as HTMLInputElement;
+                  if (input.value.trim()) {
+                    await addDocument<ChatMessage>('chat', { userId: user.id, nickname: user.nickname, text: input.value, timestamp: Date.now(), isAdmin: user.role === UserRole.ADMIN });
+                    input.value = '';
+                  }
+                }}
+                className="bg-brand-red p-2 rounded-full text-white hover:bg-red-500 transition-colors"
+              >
+                <Send size={20} />
+              </button>
+            </div>
+          </div>
+        </PageLayout>
+      );
+    }
+
+    if (currentSection === NavSection.FORUM) {
+      return (
+        <PageLayout title="MURAL DA COMUNIDADE" onBack={goHome} onLogout={handleLogout} showBottomNav={true} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle}>
+          <div className="space-y-6">
+            <div className="bg-brand-card p-4 rounded-2xl border border-gray-800">
+              <h3 className="font-suez text-white text-sm mb-3 uppercase flex items-center gap-2"><Plus size={16} className="text-brand-orange"/> Novo Post</h3>
+              <textarea 
+                id="forum-input"
+                placeholder="O que você quer compartilhar com o grupo?" 
+                className="w-full bg-brand-dark border border-gray-700 rounded-xl p-3 text-sm text-white focus:outline-none focus:border-brand-orange resize-none h-24 mb-3"
+              />
+              <FlameButton label="POSTAR NO MURAL" onClick={async () => {
+                const input = document.getElementById('forum-input') as HTMLTextAreaElement;
+                if (input.value.trim()) {
+                  await addDocument<ForumPost>('forum', { 
+                    userId: user.id, 
+                    nickname: user.nickname, 
+                    content: input.value, 
+                    likes: [], 
+                    comments: [], 
+                    timestamp: Date.now() 
+                  });
+                  input.value = '';
+                  toast.success("Postado com sucesso!");
+                }
+              }} className="w-full" />
+            </div>
+
+            <div className="space-y-4">
+              {forumPosts.map(post => (
+                <div key={post.id} className="bg-brand-card p-4 rounded-2xl border border-gray-800 shadow-lg">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center border border-brand-orange">
+                      <Users size={20} className="text-gray-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-white">{post.nickname}</p>
+                      <p className="text-[10px] text-gray-500">{new Date(post.timestamp).toLocaleDateString()}</p>
+                    </div>
+                    { (user.role === UserRole.ADMIN || post.userId === user.id) && (
+                      <button 
+                        onClick={async () => {
+                          await deleteDocument('forum', post.id);
+                          toast.success("Post removido!");
+                        }}
+                        className="ml-auto text-gray-600 hover:text-red-500"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-300 leading-relaxed mb-4">{post.content}</p>
+                  <div className="flex gap-4 pt-3 border-t border-gray-800">
+                    <button 
+                      onClick={async () => {
+                        const newLikes = post.likes.includes(user.id) 
+                          ? post.likes.filter(id => id !== user.id) 
+                          : [...post.likes, user.id];
+                        await updateDocument<ForumPost>('forum', { id: post.id, likes: newLikes });
+                      }}
+                      className={`flex items-center gap-1 text-xs font-bold ${post.likes.includes(user.id) ? 'text-brand-red' : 'text-gray-500'}`}
+                    >
+                      <Heart size={16} fill={post.likes.includes(user.id) ? "currentColor" : "none"} /> {post.likes.length}
+                    </button>
+                    <button className="flex items-center gap-1 text-xs font-bold text-gray-500">
+                      <CommentIcon size={16} /> {post.comments.length}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </PageLayout>
+      );
+    }
+    if (currentSection === NavSection.MEMBERS_WALL) {
+      return (
+        <PageLayout title="MURAL DE MEMBROS" onBack={goHome} onLogout={handleLogout} showBottomNav={true} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle}>
+          <div className="grid grid-cols-2 gap-4">
+            {members.map(m => (
+              <div key={m.id} className="bg-brand-card p-4 rounded-2xl border border-gray-800 flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-full bg-gray-800 border-2 mb-2 overflow-hidden" style={{ borderColor: m.graduationColor }}>
+                  {m.avatar ? <img src={m.avatar} className="w-full h-full object-cover" /> : <Users size={32} className="text-gray-700 m-auto mt-3" />}
+                </div>
+                <h4 className="font-bold text-white text-sm">{m.nickname}</h4>
+                <p className="text-[10px] uppercase font-black" style={{ color: m.graduationColor }}>{m.graduation}</p>
+              </div>
+            ))}
+          </div>
+        </PageLayout>
+      );
+    }
+
+    if (currentSection === NavSection.PARTNERS) {
+      return (
+        <PageLayout title="PARCEIROS & DESCONTOS" onBack={goHome} onLogout={handleLogout} showBottomNav={true} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle}>
+          <div className="space-y-4">
+            {user.role === UserRole.ADMIN && (
+              <button 
+                onClick={() => setEditingPartner({ name: '', type: '', discount: '', logo: 'https://picsum.photos/seed/partner/100/100' })}
+                className="w-full bg-brand-orange/20 border border-brand-orange/50 text-brand-orange py-3 rounded-2xl font-black text-xs flex items-center justify-center gap-2 mb-4"
+              >
+                <Plus size={16} /> ADICIONAR PARCEIRO
+              </button>
+            )}
+
+            {editingPartner && (
+              <div className="bg-brand-card p-5 rounded-3xl border border-brand-orange shadow-2xl space-y-4 mb-6">
+                <h3 className="font-suez text-brand-orange uppercase text-sm">Editor de Parceiro</h3>
+                <div className="space-y-3">
+                  <input type="text" value={editingPartner.name} onChange={e => setEditingPartner({...editingPartner, name: e.target.value})} placeholder="Nome" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                  <input type="text" value={editingPartner.type} onChange={e => setEditingPartner({...editingPartner, type: e.target.value})} placeholder="Tipo (ex: Fitness)" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                  <input type="text" value={editingPartner.discount} onChange={e => setEditingPartner({...editingPartner, discount: e.target.value})} placeholder="Desconto (ex: 15%)" className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                  <div className="flex gap-2">
+                    <input type="text" value={editingPartner.logo} onChange={e => setEditingPartner({...editingPartner, logo: e.target.value})} placeholder="URL do Logo" className="flex-1 bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white" />
+                    <label className="bg-gray-800 p-2 rounded-xl cursor-pointer border border-gray-700">
+                      <Camera size={20} className="text-gray-400" />
+                      <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFileUpload(e, (url) => setEditingPartner({...editingPartner, logo: url}))} />
+                    </label>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button onClick={() => setEditingPartner(null)} className="flex-1 bg-gray-800 text-white py-3 rounded-xl font-bold text-xs">CANCELAR</button>
+                    <button 
+                      onClick={async () => {
+                        if (editingPartner.id) await updateDocument<Partner>('partners', editingPartner);
+                        else await addDocument<Partner>('partners', editingPartner);
+                        setEditingPartner(null);
+                        toast.success("Parceiro salvo!");
+                      }}
+                      className="flex-1 bg-brand-orange text-white py-3 rounded-xl font-bold text-xs"
+                    >
+                      SALVAR
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {partners.map(p => (
+              <div key={p.id} className="bg-brand-card p-4 rounded-2xl border border-gray-800 flex items-center gap-4 relative group">
+                <img src={p.logo} className="w-16 h-16 rounded-xl object-cover" alt={p.name} />
+                <div className="flex-1">
+                  <h4 className="font-bold text-white">{p.name}</h4>
+                  <p className="text-xs text-gray-500">{p.type}</p>
+                </div>
+                <div className="bg-brand-red px-3 py-1 rounded-full text-xs font-black shadow-lg">{p.discount} OFF</div>
+                
+                {user.role === UserRole.ADMIN && (
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => setEditingPartner(p)} className="p-1.5 bg-gray-800 rounded-lg text-blue-400 border border-gray-700"><Edit3 size={14}/></button>
+                    <button onClick={async () => { if(confirm("Excluir parceiro?")) await deleteDocument('partners', p.id!); toast.success("Removido!"); }} className="p-1.5 bg-gray-800 rounded-lg text-brand-red border border-gray-700"><Trash2 size={14}/></button>
+                  </div>
+                )}
+              </div>
+            ))}
+            {partners.length === 0 && !editingPartner && (
+              <div className="py-20 text-center text-gray-600">Nenhum parceiro cadastrado.</div>
+            )}
+          </div>
+        </PageLayout>
+      );
+    }
+
+    if (currentSection === NavSection.WEB2APP) {
+      const [inputUrl, setInputUrl] = useState('http://www.youtube.com/watch?v=dQw4w9WgXcQ');
+      const [config, setConfig] = useState<Web2AppConfig>({
+        ios_scheme: 'youtube://',
+        android_scheme: 'youtube://',
+        store_id: '544007664',
+        package_name: 'com.google.android.youtube'
+      });
+      const [results, setResults] = useState<Web2AppResult[]>([]);
+
+      const handleGenerate = () => {
+        const res = generateAppLinks(inputUrl, config);
+        setResults(res);
+      };
+
+      return (
+        <PageLayout title="WEB TO APP" onBack={goHome} onLogout={handleLogout} showBottomNav={true} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle}>
+          <div className="space-y-6">
+            <div className="bg-brand-card p-6 rounded-3xl border border-gray-800 shadow-xl space-y-4">
+              <h3 className="font-suez text-white text-lg uppercase flex items-center gap-2">
+                <Globe size={20} className="text-brand-orange"/> Gerador de Links
+              </h3>
+              
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1">URL da Web</label>
+                  <input 
+                    type="text" 
+                    value={inputUrl} 
+                    onChange={(e) => setInputUrl(e.target.value)}
+                    className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-orange"
+                    placeholder="https://example.com/path"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1">iOS Scheme</label>
+                    <input 
+                      type="text" 
+                      value={config.ios_scheme} 
+                      onChange={(e) => setConfig({...config, ios_scheme: e.target.value})}
+                      className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-orange"
+                      placeholder="myapp://"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1">Android Scheme</label>
+                    <input 
+                      type="text" 
+                      value={config.android_scheme} 
+                      onChange={(e) => setConfig({...config, android_scheme: e.target.value})}
+                      className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-orange"
+                      placeholder="myapp://"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1">App Store ID</label>
+                    <input 
+                      type="text" 
+                      value={config.store_id} 
+                      onChange={(e) => setConfig({...config, store_id: e.target.value})}
+                      className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-orange"
+                      placeholder="123456789"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1">Package Name</label>
+                    <input 
+                      type="text" 
+                      value={config.package_name} 
+                      onChange={(e) => setConfig({...config, package_name: e.target.value})}
+                      className="w-full bg-brand-dark border border-gray-700 rounded-xl px-4 py-2 text-sm text-white focus:outline-none focus:border-brand-orange"
+                      placeholder="com.example.app"
+                    />
+                  </div>
+                </div>
+
+                <FlameButton label="GERAR URIs" onClick={handleGenerate} className="w-full py-4 mt-2" />
+              </div>
+            </div>
+
+            {results.length > 0 && (
+              <div className="space-y-4">
+                <h4 className="text-xs font-black text-gray-500 uppercase tracking-widest px-2">Resultados Gerados</h4>
+                {results.map((res, i) => (
+                  <div key={i} className="bg-brand-card p-4 rounded-2xl border border-gray-800 shadow-lg space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] font-black text-brand-orange uppercase tracking-tighter">{res.name}</span>
+                      <span className={`text-[8px] font-black px-2 py-0.5 rounded-full border ${
+                        res.platform === 'Web' ? 'border-blue-900/50 text-blue-400' : 
+                        res.platform === 'Android' ? 'border-green-900/50 text-green-400' : 
+                        'border-indigo-900/50 text-indigo-400'
+                      }`}>
+                        {res.platform}
+                      </span>
+                    </div>
+                    <div className="bg-brand-dark p-3 rounded-xl border border-gray-700 flex items-center gap-3">
+                      <p className="text-[10px] font-mono text-gray-300 break-all flex-1">{res.uri}</p>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(res.uri);
+                          toast.success("Copiado!");
+                        }}
+                        className="text-gray-500 hover:text-white transition-colors"
+                      >
+                        <Copy size={16} />
+                      </button>
+                    </div>
+                    <div className="flex justify-center pt-2">
+                       <img 
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(res.uri)}`} 
+                        className="w-20 h-20 invert opacity-80" 
+                        alt="QR Code" 
+                        referrerPolicy="no-referrer"
+                       />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </PageLayout>
+      );
+    }
+
     if (currentSection === NavSection.AI_STUDIO) return <PageLayout title="AI STUDIO" onBack={goHome} onLogout={handleLogout} showBottomNav={showNav} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle}><GeminiStudio /></PageLayout>;
     if (currentSection === NavSection.AI_CHAT) return <PageLayout title="ASSISTENTE IA" onBack={goHome} onLogout={handleLogout} showBottomNav={showNav} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle}><AIChat /></PageLayout>;
     if (currentSection === NavSection.LIVE_SESSION) return <PageLayout title="LIVE VOICE" onBack={goHome} onLogout={handleLogout} showBottomNav={showNav} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle}><LiveSession /></PageLayout>;
@@ -1117,15 +1670,25 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
         const visibleTabs = navConfig.filter(item => item.isVisible && item.section !== NavSection.HOME);
         
         return (
-          <PageLayout title="INCENDEIA" onLogout={handleLogout} showBottomNav={true} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle} onMenu={() => setIsSidebarOpen(true)}>
+          <PageLayout title="INCENDEIA" onLogout={handleLogout} showBottomNav={true} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle} onOpenMenu={() => setIsMenuOpen(true)}>
              <FloatingGradients />
-             <div className="space-y-8 flex flex-col items-center relative z-10 pt-10">
+             <div className="space-y-8 flex flex-col items-center relative z-10">
+                {/* Notice Panel */}
+                <div className="w-full bg-brand-red/20 border border-brand-red/30 p-3 rounded-xl flex items-center gap-3 animate-pulse">
+                   <AlertCircle className="text-brand-red" size={20} />
+                   <div className="flex-1 overflow-hidden">
+                      <p className="text-[10px] font-bold text-white uppercase tracking-wider whitespace-nowrap animate-marquee">
+                         Próxima Roda de Rua: 15 de Maio na Praça Central! Não perca! • Mensalidades em dia ajudam o grupo!
+                      </p>
+                   </div>
+                </div>
+
                 {/* Rotating Tabs Interface */}
-                <div className="relative w-full h-[450px] flex items-center justify-center overflow-hidden">
+                <div className="relative w-full h-[400px] flex items-center justify-center overflow-hidden mt-8">
                    {/* Central Logo with Fire Circle */}
-                   <div className="relative z-20 w-48 h-48 flex items-center justify-center">
-                      <FireCircle size="w-56 h-56" />
-                      <div className="relative z-10 w-40 h-40 rounded-full border-2 border-brand-red bg-black shadow-[0_0_60px_rgba(217,4,41,0.5)] flex items-center justify-center overflow-hidden group">
+                   <div className="relative z-20 w-40 h-40 flex items-center justify-center">
+                      <FireCircle size="w-44 h-44" />
+                      <div className="relative z-10 w-32 h-32 rounded-full border-2 border-brand-red bg-black shadow-[0_0_50px_rgba(217,4,41,0.4)] flex items-center justify-center overflow-hidden group">
                          <img src="https://i.ibb.co/V0WppRbR/1770855196310.png" alt="Logo" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                          <div className="absolute inset-0 bg-gradient-to-t from-brand-red/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                       </div>
@@ -1140,39 +1703,29 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
                             <button
                                key={item.section}
                                onClick={() => setCurrentSection(item.section)}
-                               className="absolute w-16 h-16 bg-brand-card border-2 border-gray-700 rounded-2xl flex flex-col items-center justify-center shadow-2xl hover:border-brand-red hover:scale-110 transition-all duration-300 group z-30"
+                               className="absolute w-14 h-14 bg-brand-card border-2 border-gray-700 rounded-2xl flex flex-col items-center justify-center shadow-xl hover:border-brand-red hover:scale-110 transition-all duration-300 group"
                                style={{
-                                  animation: `orbit-${idx} 40s linear infinite`,
+                                  animation: `orbit-${idx} 30s linear infinite`,
                                   '--start-angle': `${angle}deg`,
                                } as any}
                             >
-                               <Icon size={24} className="text-brand-orange group-hover:text-brand-red transition-colors" />
-                               <span className="text-[8px] font-black text-gray-500 mt-1 uppercase truncate w-full px-1">{item.label}</span>
+                               <Icon size={20} className="text-brand-orange group-hover:text-brand-red transition-colors" />
+                               <span className="text-[7px] font-bold text-gray-500 mt-1 uppercase truncate w-full px-1 text-center">{item.label}</span>
                                
                                <style>{`
                                   @keyframes orbit-${idx} {
-                                     from { transform: rotate(calc(var(--start-angle) + 0deg)) translateX(150px) rotate(calc(var(--start-angle) * -1 - 0deg)); }
-                                     to { transform: rotate(calc(var(--start-angle) + 360deg)) translateX(150px) rotate(calc(var(--start-angle) * -1 - 360deg)); }
+                                     from { transform: rotate(calc(var(--start-angle) + 0deg)) translateX(140px) rotate(calc(var(--start-angle) * -1 - 0deg)); }
+                                     to { transform: rotate(calc(var(--start-angle) + 360deg)) translateX(140px) rotate(calc(var(--start-angle) * -1 - 360deg)); }
                                   }
-                                `}</style>
+                               `}</style>
                             </button>
                          );
                       })}
                    </div>
                    
                    {/* Background Decorative Rings */}
-                   <div className="absolute w-[300px] h-[300px] border border-gray-800 rounded-full opacity-20"></div>
-                   <div className="absolute w-[380px] h-[380px] border border-gray-800 rounded-full opacity-10"></div>
-                </div>
-
-                {/* Notice Panel */}
-                <div className="w-full bg-brand-red/20 border border-brand-red/30 p-3 rounded-xl flex items-center gap-3 animate-pulse">
-                   <AlertCircle className="text-brand-red" size={20} />
-                   <div className="flex-1 overflow-hidden">
-                      <p className="text-[10px] font-bold text-white uppercase tracking-wider whitespace-nowrap animate-marquee">
-                         Próxima Roda de Rua: 15 de Maio na Praça Central! Não perca! • Mensalidades em dia ajudam o grupo!
-                      </p>
-                   </div>
+                   <div className="absolute w-[280px] h-[280px] border border-gray-800 rounded-full opacity-20"></div>
+                   <div className="absolute w-[340px] h-[340px] border border-gray-800 rounded-full opacity-10"></div>
                 </div>
              </div>
           </PageLayout>
@@ -1181,21 +1734,36 @@ Nossa linhagem remonta aos grandes mestres do passado, mantendo viva a chama da 
     return <PageLayout title={currentSection} onBack={goHome} onLogout={handleLogout} showBottomNav={showNav} currentSection={currentSection} onNavigate={setCurrentSection} navItems={resolvedNavItems} style={layoutStyle}><div className="flex flex-col items-center justify-center h-64 text-gray-500"><p>Seção em desenvolvimento...</p>{user.role === UserRole.ADMIN && <FlameButton label="ADICIONAR CONTEÚDO" variant="secondary" className="mt-4" />}</div></PageLayout>;
   };
 
-  return <div className="min-h-screen font-sans bg-brand-dark text-white selection:bg-brand-red selection:text-white">
-    <Sidebar 
-      isOpen={isSidebarOpen} 
-      onClose={() => setIsSidebarOpen(false)} 
-      onNavigate={setCurrentSection} 
-      currentSection={currentSection} 
-      navItems={navConfig.filter(i => i.isVisible)} 
-      user={user}
-      onLogout={handleLogout}
-    />
-    <div className="max-w-md mx-auto bg-brand-dark min-h-screen shadow-2xl relative border-x border-gray-800">{renderContent()}</div>
-  </div>;
+  return (
+    <div className="min-h-screen font-sans bg-brand-dark text-white selection:bg-brand-red selection:text-white">
+      <Toaster position="top-center" />
+      <div className="max-w-md mx-auto bg-brand-dark min-h-screen shadow-2xl relative border-x border-gray-800">
+        {loading ? (
+          <div className="flex items-center justify-center h-screen">
+            <FireCircle size="w-32 h-32" />
+          </div>
+        ) : (
+          <>
+            {user && (
+              <Sidebar 
+                isOpen={isMenuOpen} 
+                onClose={() => setIsMenuOpen(false)} 
+                navItems={navConfig.filter(item => item.isVisible)} 
+                currentSection={currentSection} 
+                onNavigate={setCurrentSection} 
+                user={user} 
+                onLogout={handleLogout} 
+              />
+            )}
+            {renderContent()}
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
-const LoginForm = ({ mode, onCancel, onSubmit }: { mode: 'MEMBER' | 'ADMIN', onCancel: () => void, onSubmit: (n: string, p: string) => void }) => {
+const LoginForm = ({ mode, onCancel, onSubmit }: { mode: 'MEMBER' | 'ADMIN', onCancel: () => void, onSubmit: (n: string, p: string, isGoogle?: boolean) => void }) => {
   const [nick, setNick] = useState('');
   const [pass, setPass] = useState('');
   return (
@@ -1204,7 +1772,21 @@ const LoginForm = ({ mode, onCancel, onSubmit }: { mode: 'MEMBER' | 'ADMIN', onC
       <div className="space-y-5">
         <div><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Apelido (Obrigatório)</label><input type="text" value={nick} onChange={(e) => setNick(e.target.value)} className="w-full bg-brand-dark border-b-2 border-gray-700 py-2 focus:outline-none focus:border-brand-red font-bold text-lg text-white placeholder-gray-600 transition-colors" placeholder="Seu apelido" /></div>
         <div><label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest block mb-1">Senha (Obrigatório)</label><input type="password" value={pass} onChange={(e) => setPass(e.target.value)} className="w-full bg-brand-dark border-b-2 border-gray-700 py-2 focus:outline-none focus:border-brand-red font-bold text-lg text-white placeholder-gray-600 transition-colors" placeholder="••••••" /></div>
-        <div className="pt-4"><FlameButton label="SALVAR E ENTRAR" onClick={() => onSubmit(nick, pass)} className="w-full py-4 text-sm" /></div>
+        <div className="pt-4 space-y-3">
+          <FlameButton label="SALVAR E ENTRAR" onClick={() => onSubmit(nick, pass)} className="w-full py-4 text-sm" />
+          <div className="flex items-center gap-3 py-2">
+            <div className="flex-1 h-[1px] bg-gray-800"></div>
+            <span className="text-[8px] font-black text-gray-600 uppercase">OU</span>
+            <div className="flex-1 h-[1px] bg-gray-800"></div>
+          </div>
+          <button 
+            onClick={() => onSubmit('', '', true)}
+            className="w-full flex items-center justify-center gap-3 bg-white text-black py-3 rounded-full font-bold text-xs hover:bg-gray-200 transition-all shadow-lg"
+          >
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
+            ENTRAR COM GOOGLE
+          </button>
+        </div>
       </div>
     </div>
   );

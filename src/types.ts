@@ -46,12 +46,12 @@ export enum NavSection {
   LAYOUT_EDITOR = 'LAYOUT_EDITOR',
   STORE = 'STORE',
   FINANCIAL = 'FINANCIAL',
-  GRADUATIONS = 'GRADUATIONS'
+  WEB2APP = 'WEB2APP'
 }
 
 // Data Models for the CMS
 export interface Master {
-  id: string;
+  id?: string;
   name: string;
   graduation: string;
   history: string;
@@ -59,7 +59,7 @@ export interface Master {
 }
 
 export interface TrainingLocation {
-  id: string;
+  id?: string;
   address: string;
   responsible: string;
   phone: string;
@@ -67,7 +67,7 @@ export interface TrainingLocation {
 }
 
 export interface Event {
-  id: string;
+  id?: string;
   title: string;
   date: string;
   location: string;
@@ -82,7 +82,7 @@ export interface GraduationSystem {
 }
 
 export interface ChatMessage {
-  id: string;
+  id?: string;
   userId: string;
   nickname: string;
   text: string;
@@ -91,11 +91,13 @@ export interface ChatMessage {
 }
 
 export interface ForumPost {
-  id: string;
-  title: string;
+  id?: string;
+  userId: string;
+  nickname: string;
   content: string;
-  author: string;
-  comments: { author: string; text: string }[];
+  likes: string[];
+  comments: { nickname: string; text: string; timestamp: number }[];
+  timestamp: number;
 }
 
 export interface Comment {
@@ -118,6 +120,32 @@ export interface GalleryItem {
   timestamp: number;
 }
 
+export interface Partner {
+  id?: string;
+  name: string;
+  type: string;
+  discount: string;
+  logo: string;
+}
+
+export interface Product {
+  id?: string;
+  name: string;
+  price: number;
+  color: string;
+  qty: number;
+  img: string;
+}
+
+export interface Payment {
+  id?: string;
+  userId: string;
+  month: string;
+  year: number;
+  value: number;
+  status: 'PAID' | 'PENDING';
+}
+
 export interface NavItemConfig {
   section: NavSection;
   label: string;
@@ -137,30 +165,17 @@ export const INITIAL_NAV_CONFIG: NavItemConfig[] = [
   { section: NavSection.HOME, label: 'Início', icon: 'Home', isVisible: true, showInBottomNav: true },
   { section: NavSection.PROFILE, label: 'Perfil', icon: 'Users', isVisible: true, showInBottomNav: true },
   { section: NavSection.CHAT, label: 'Chat', icon: 'MessageCircle', isVisible: true, showInBottomNav: true },
-  { section: NavSection.STORE, label: 'Loja', icon: 'ShoppingBag', isVisible: true, showInBottomNav: true },
-  { section: NavSection.FINANCIAL, label: 'Financeiro', icon: 'DollarSign', isVisible: true, showInBottomNav: true },
-  { section: NavSection.GALLERY, label: 'Galeria', icon: 'Image', isVisible: true, showInBottomNav: false },
-  { section: NavSection.EVENTS, label: 'Agenda', icon: 'Calendar', isVisible: true, showInBottomNav: false },
+  { section: NavSection.GALLERY, label: 'Galeria', icon: 'Image', isVisible: true, showInBottomNav: true },
+  { section: NavSection.EVENTS, label: 'Agenda', icon: 'Calendar', isVisible: true, showInBottomNav: true },
   { section: NavSection.LOCATIONS, label: 'Locais', icon: 'MapPin', isVisible: true, showInBottomNav: false },
   { section: NavSection.HISTORY, label: 'História', icon: 'BookOpen', isVisible: true, showInBottomNav: false },
   { section: NavSection.LIVE_SESSION, label: 'Live', icon: 'Video', isVisible: true, showInBottomNav: false },
   { section: NavSection.MEMBERS_WALL, label: 'Mural', icon: 'Globe', isVisible: true, showInBottomNav: false },
   { section: NavSection.AI_CHAT, label: 'AI Chat', icon: 'Bot', isVisible: true, showInBottomNav: false },
   { section: NavSection.AI_STUDIO, label: 'Studio', icon: 'Sparkles', isVisible: true, showInBottomNav: false },
-  { section: NavSection.GRADUATIONS, label: 'Graduações', icon: 'Award', isVisible: true, showInBottomNav: false }
-];
-
-export const GRADUATION_LEVELS = [
-  'Aluno', 'Graduado', 'Instrutor', 'Professor', 'Mestrando', 'Mestre'
-];
-
-export const INITIAL_GRADUATIONS: GraduationSystem[] = [
-  { id: '1', name: 'Iniciante', color: '#22c55e', meaning: 'O início da jornada, a semente que brota.' },
-  { id: '2', name: 'Batizado', color: '#eab308', meaning: 'O reconhecimento do aluno no mundo da capoeira.' },
-  { id: '3', name: 'Graduado', color: '#3b82f6', meaning: 'Domínio técnico e compromisso com o grupo.' },
-  { id: '4', name: 'Instrutor', color: '#a855f7', meaning: 'Capacidade de transmitir conhecimentos básicos.' },
-  { id: '5', name: 'Professor', color: '#ef4444', meaning: 'Maturidade técnica e pedagógica.' },
-  { id: '6', name: 'Mestre', color: '#ffffff', meaning: 'A sabedoria máxima e a guarda da tradição.' }
+  { section: NavSection.STORE, label: 'Loja', icon: 'ShoppingBag', isVisible: true, showInBottomNav: false },
+  { section: NavSection.FINANCIAL, label: 'Financeiro', icon: 'DollarSign', isVisible: true, showInBottomNav: false },
+  { section: NavSection.WEB2APP, label: 'Web2App', icon: 'Link', isVisible: true, showInBottomNav: false }
 ];
 
 export const FONT_OPTIONS = [

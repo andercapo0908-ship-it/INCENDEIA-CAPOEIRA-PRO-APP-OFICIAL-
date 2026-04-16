@@ -1,67 +1,202 @@
 {
   "entities": {
-    "UserData": {
-      "title": "UserData",
+    "User": {
+      "title": "User",
       "description": "User profile and role information",
       "type": "object",
       "properties": {
-        "uid": { "type": "string" },
+        "id": { "type": "string" },
+        "nickname": { "type": "string" },
         "name": { "type": "string" },
-        "email": { "type": "string" },
-        "role": { "type": "string", "enum": ["USER", "ADMIN"] },
+        "role": { "type": "string", "enum": ["ADMIN", "MEMBER", "GUEST"] },
         "graduation": { "type": "string" },
+        "graduationColor": { "type": "string" },
+        "since": { "type": "string" },
         "avatar": { "type": "string" },
         "bio": { "type": "string" },
-        "createdAt": { "type": "number" }
+        "birthDate": { "type": "string" },
+        "notes": { "type": "string" },
+        "reactions": { "type": "array", "items": { "type": "string" } }
       },
-      "required": ["uid", "name", "email", "role"]
+      "required": ["id", "nickname", "role"]
     },
-    "MuralPost": {
-      "title": "MuralPost",
-      "description": "Post on the community mural",
+    "Master": {
+      "title": "Master",
+      "description": "Capoeira Master information",
       "type": "object",
       "properties": {
-        "userId": { "type": "string" },
-        "nickname": { "type": "string" },
-        "avatar": { "type": "string" },
-        "text": { "type": "string" },
-        "image": { "type": "string" },
-        "timestamp": { "type": "object" },
-        "likes": { "type": "array", "items": { "type": "string" } },
-        "comments": { "type": "array" }
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "graduation": { "type": "string" },
+        "history": { "type": "string" },
+        "photo": { "type": "string" }
       },
-      "required": ["userId", "nickname", "text", "timestamp"]
+      "required": ["id", "name", "graduation"]
+    },
+    "TrainingLocation": {
+      "title": "TrainingLocation",
+      "description": "Location where training sessions take place",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "address": { "type": "string" },
+        "responsible": { "type": "string" },
+        "phone": { "type": "string" },
+        "mapLink": { "type": "string" }
+      },
+      "required": ["id", "address", "responsible"]
+    },
+    "Event": {
+      "title": "Event",
+      "description": "Group events and schedule",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "date": { "type": "string" },
+        "location": { "type": "string" },
+        "poster": { "type": "string" }
+      },
+      "required": ["id", "title", "date", "location"]
     },
     "GalleryItem": {
       "title": "GalleryItem",
-      "description": "Image in the community gallery",
+      "description": "Media item in the community gallery",
       "type": "object",
       "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["image", "video"] },
         "url": { "type": "string" },
-        "userId": { "type": "string" },
-        "userName": { "type": "string" },
-        "timestamp": { "type": "object" },
-        "likes": { "type": "array", "items": { "type": "string" } }
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "likes": { "type": "array", "items": { "type": "string" } },
+        "comments": { "type": "array" },
+        "uploadedBy": { "type": "string" },
+        "timestamp": { "type": "number" }
       },
-      "required": ["url", "userId", "userName", "timestamp"]
+      "required": ["id", "type", "url", "uploadedBy", "timestamp"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Message in the group chat",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "nickname": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "isAdmin": { "type": "boolean" }
+      },
+      "required": ["id", "userId", "nickname", "text", "timestamp"]
+    },
+    "ForumPost": {
+      "title": "ForumPost",
+      "description": "Post in the community forum",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "author": { "type": "string" },
+        "comments": { "type": "array" }
+      },
+      "required": ["id", "title", "content", "author"]
+    },
+    "Partner": {
+      "title": "Partner",
+      "description": "Business partner with discounts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "discount": { "type": "string" },
+        "logo": { "type": "string" }
+      },
+      "required": ["id", "name", "type", "discount"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Item in the group store",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "color": { "type": "string" },
+        "qty": { "type": "number" },
+        "img": { "type": "string" }
+      },
+      "required": ["id", "name", "price", "qty"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "User payment record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "month": { "type": "string" },
+        "year": { "type": "number" },
+        "value": { "type": "number" },
+        "status": { "type": "string", "enum": ["PAID", "PENDING"] }
+      },
+      "required": ["id", "userId", "month", "year", "value", "status"]
     }
   },
   "firestore": {
     "/users/{userId}": {
-      "schema": "UserData",
+      "schema": "User",
       "description": "User profiles"
     },
-    "/mural/{postId}": {
-      "schema": "MuralPost",
-      "description": "Community mural posts"
+    "/masters/{masterId}": {
+      "schema": "Master",
+      "description": "Capoeira Masters"
+    },
+    "/locations/{locationId}": {
+      "schema": "TrainingLocation",
+      "description": "Training locations"
+    },
+    "/events/{eventId}": {
+      "schema": "Event",
+      "description": "Group events"
     },
     "/gallery/{itemId}": {
       "schema": "GalleryItem",
-      "description": "Gallery images"
+      "description": "Gallery media"
     },
-    "/config/app": {
+    "/chat/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Chat messages"
+    },
+    "/forum/{postId}": {
+      "schema": "ForumPost",
+      "description": "Forum posts"
+    },
+    "/partners/{partnerId}": {
+      "schema": "Partner",
+      "description": "Business partners"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Store products"
+    },
+    "/payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Payment records"
+    },
+    "/config/layout": {
       "schema": "object",
-      "description": "App-wide configuration"
+      "description": "App layout configuration"
+    },
+    "/config/navigation": {
+      "schema": "object",
+      "description": "App navigation configuration"
+    },
+    "/config/history": {
+      "schema": "object",
+      "description": "Group history text"
     }
   }
 }
