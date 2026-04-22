@@ -9,6 +9,6 @@ export default defineConfig({
   ],
   server: {
     port: 3000,
-    npm install @tailwindcss/vite @vitejs/plugin-react
+    host: '0.0.0.0'
   }
 })
